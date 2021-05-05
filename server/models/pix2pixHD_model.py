@@ -42,6 +42,8 @@ def generate_discrete_label(inputs, label_nc, onehot=True, encode=True):
     input_label = input_label.scatter_(1, label_map.data.long().cuda(), 1.0)
 
     return input_label
+
+
 def morpho(mask,iter,bigger=True):
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     new=[]
@@ -58,6 +60,7 @@ def morpho(mask,iter,bigger=True):
     new=np.stack(new)
     new=torch.FloatTensor(new).cuda()
     return new
+
 
 def morpho_smaller(mask,iter,bigger=True):
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
@@ -213,7 +216,6 @@ class Pix2PixHDModel(BaseModel):
                 print('The layers that are finetuned are ', sorted(finetune_list))
 
 
-
     def encode_input(self, label_map, clothes_mask, all_clothes_label):
 
         size = label_map.size()
@@ -269,6 +271,7 @@ class Pix2PixHDModel(BaseModel):
         noise = np.asarray(noise / 255, dtype=np.uint8)
         noise = torch.tensor(noise, dtype=torch.float32)
         return noise.cuda()
+
     def multi_scale_blend(self,fake_img,fake_c,mask,number=4):
         alpha=[0,0.1,0.3,0.6,0.9]
         smaller=mask
@@ -281,6 +284,7 @@ class Pix2PixHDModel(BaseModel):
         out+=smaller*fake_c
         out+=(1-mask)*fake_img
         return out
+
     def forward(self, label, pre_clothes_mask, img_fore, clothes_mask, clothes, all_clothes_label, real_image, pose,grid,mask_fore):
         # Encode Inputs
         input_label, masked_label, all_clothes_label = self.encode_input(label, clothes_mask, all_clothes_label)
@@ -367,19 +371,7 @@ class Pix2PixHDModel(BaseModel):
         return fake_image
 
     def save(self, which_epoch):
-        # self.save_network(self.Unet, 'U', which_epoch, self.gpu_ids)
-        # self.save_network(self.G, 'G', which_epoch, self.gpu_ids)
-        # self.save_network(self.G1, 'G1', which_epoch, self.gpu_ids)
-        # self.save_network(self.G2, 'G2', which_epoch, self.gpu_ids)
-        # # self.save_network(self.G3, 'G3', which_epoch, self.gpu_ids)
-        # self.save_network(self.D, 'D', which_epoch, self.gpu_ids)
-        # self.save_network(self.D1, 'D1', which_epoch, self.gpu_ids)
-        # self.save_network(self.D2, 'D2', which_epoch, self.gpu_ids)
-        # self.save_network(self.D3, 'D3', which_epoch, self.gpu_ids)
-
         pass
-
-        # self.save_network(self.netB, 'B', which_epoch, self.gpu_ids)
 
     def update_fixed_params(self):
         # after fixing the global generator for a number of iterations, also start finetuning it

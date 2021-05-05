@@ -1,1 +1,5 @@
 .vscode/
+*.pyc
+*.pth
+server/checkpoints/label2city/
+server/data_preprocessing/
