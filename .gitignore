@@ -3,3 +3,10 @@
 *.pth
 server/checkpoints/label2city/
 server/data_preprocessing/
+*.ipynb
+*.png
+server/human_parse/demo/
+server/human_parse/mhp_extension/detectron2/.github/
+server/human_parse/mhp_extension/detectron2/.circleci/
+*.md
+*.sh
