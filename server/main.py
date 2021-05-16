@@ -7,56 +7,66 @@ import numpy as np
 import cv2
 from PIL import Image
 
-import torch
-from torch.autograd import Variable
-
 from flask import Flask, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
 from options.server_options import ServerOptions
 
 from ACGPN.handler import Handler as ACGPNHandler
-from ACGPN.models.models import create_model
-import ACGPN.util.util as util
-from ACGPN.ops import get_params, get_transform
+from human_parse.handler import Handler as ParseHandler
+from mask.handler import Handler as MaskHandler
+from pose_estimator.handler import Handler as PEHandler
+from data.data_dict import DataDictionary
 
 
 app = Flask(__name__)
 
+ps_checkpoints = 'pose_estimator/checkpoints'
+
 opt = ServerOptions().parse()
 acgpn_handler = ACGPNHandler(opt)
-model = create_model(opt)
+parse_handler = ParseHandler(opt)
+mask_handler = MaskHandler()
+pe_handler = PEHandler(ps_checkpoints)
 
-SIZE=320
-NC=14
 f_filename = '{time}{rand}'
+dir_C = ' data_preprocessing/test_color'
+data_dict = DataDictionary(opt, parse_handler, mask_handler, pe_handler, dir_C)
 
-dir_A = os.path.join(opt.dataroot, opt.phase + '_label')
 
-
+'''
+ For Testing
+'''
 @app.route('/')
 def test_page():
-    return render_template('index.html')
+    return render_template('test.html')
 
 
 @app.route('/img_upload', methods=['GET', 'POST'])
 def image_upload():
     if request.method == 'POST':
-        user_i = request.files['img_file']
-        rand = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-        img_name = f_filename.format(time=str(int(time.time())), rand=rand)
-        img_path = 'img_upload/' + img_name
-        dest = secure_filename(img_path)
-        user_i.save(dest)
+        user_img = request.files['img_file']
+        clothes_imgpath = os.path.join('data_preprocessing/test_color', request.form['clothes'])
+        rand_digits = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(16))
+        img_name = f_filename.format(time=str(int(time.time())), rand=rand_digits)
+        img_name = secure_filename(img_name)
+        dest = os.path.join('img_upload/', img_name)
+        user_img.save(dest)
 
-        B_path = 'data_preprocessing/' + str(request.args['clothes']) + '_1.'
+        data = data_dict.make_dict(dest, clothes_imgpath)
+        res_img = acgpn_handler.generate_image(data)
+        res_path = os.path.join('results/', img_name)
+        cv2.imwrite(res_path, res_img)
 
-        data = make_input_dict(A_path, B_path)
-        img = generate_image(data)
-        cv2.imwrite('results/' + img_name, img)
+        return send_file(res_path, mimetype='image')
+    
+    else:
+        return '404'
 
-        return send_file('results/' + img_name, mimetype='image')
 
+'''
+ For Publishing
+'''
 
 if __name__ == "__main__":
     app.run(host='202.31.200.237',

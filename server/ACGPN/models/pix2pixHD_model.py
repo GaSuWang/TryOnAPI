@@ -218,17 +218,18 @@ class Pix2PixHDModel(BaseModel):
 
 
     def encode_input(self, label_map, clothes_mask, all_clothes_label):
-
         size = label_map.size()
         oneHot_size = (size[0], 14, size[2], size[3])
         input_label = torch.cuda.FloatTensor(torch.Size(oneHot_size)).zero_()
-        input_label = input_label.scatter_(1, label_map.data.long().cuda(), 1.0)
+        unique, counts = np.unique(label_map.cpu().data.numpy(), return_counts=True)
+        print(dict(zip(unique, counts)))
+        input_label = input_label.scatter_(1, label_map.data.long(), 1.0)
 
         masked_label = torch.cuda.FloatTensor(torch.Size(oneHot_size)).zero_()
-        masked_label = masked_label.scatter_(1, (label_map * (1 - clothes_mask)).data.long().cuda(), 1.0)
+        masked_label = masked_label.scatter_(1, (label_map * (1 - clothes_mask)).data.long(), 1.0)
 
         c_label = torch.cuda.FloatTensor(torch.Size(oneHot_size)).zero_()
-        c_label = c_label.scatter_(1, all_clothes_label.data.long().cuda(), 1.0)
+        c_label = c_label.scatter_(1, all_clothes_label.data.long(), 1.0)
 
         input_label = Variable(input_label)
 
@@ -289,9 +290,9 @@ class Pix2PixHDModel(BaseModel):
     def forward(self, label, pre_clothes_mask, img_fore, clothes_mask, clothes, all_clothes_label, real_image, pose,grid,mask_fore):
         # Encode Inputs
         input_label, masked_label, all_clothes_label = self.encode_input(label, clothes_mask, all_clothes_label)
-        arm1_mask = torch.FloatTensor((label.cpu().numpy() == 11).astype(np.float)).cuda()
-        arm2_mask = torch.FloatTensor((label.cpu().numpy() == 13).astype(np.float)).cuda()
-        pre_clothes_mask=torch.FloatTensor((pre_clothes_mask.detach().cpu().numpy() > 0.5).astype(np.float)).cuda()
+        arm1_mask = torch.FloatTensor((label.cpu().numpy() == 11).astype(np.float))
+        arm2_mask = torch.FloatTensor((label.cpu().numpy() == 13).astype(np.float))
+        pre_clothes_mask=torch.FloatTensor((pre_clothes_mask.cpu().numpy() > 0.5).astype(np.float))
         clothes = clothes * pre_clothes_mask
 
         shape = pre_clothes_mask.shape
@@ -309,11 +310,11 @@ class Pix2PixHDModel(BaseModel):
         fake_cl = self.sigmoid(fake_cl)
         CE_loss += self.BCE(fake_cl, clothes_mask) * 10
 
-        fake_cl_dis = torch.FloatTensor((fake_cl.detach().cpu().numpy() > 0.5).astype(np.float)).cuda()
+        fake_cl_dis = torch.FloatTensor((fake_cl.detach().cpu().numpy() > 0.5).astype(np.float))
         fake_cl_dis=morpho(fake_cl_dis,1,True)
 
-        new_arm1_mask = torch.FloatTensor((armlabel_map.cpu().numpy() == 11).astype(np.float)).cuda()
-        new_arm2_mask = torch.FloatTensor((armlabel_map.cpu().numpy() == 13).astype(np.float)).cuda()
+        new_arm1_mask = torch.FloatTensor((armlabel_map.cpu().detach().numpy() == 11).astype(np.float))
+        new_arm2_mask = torch.FloatTensor((armlabel_map.cpu().detach().numpy() == 13).astype(np.float))
         fake_cl_dis=fake_cl_dis*(1- new_arm1_mask)*(1-new_arm2_mask)
         fake_cl_dis*=mask_fore
 

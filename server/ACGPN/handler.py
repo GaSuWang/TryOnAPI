@@ -25,24 +25,32 @@ class Handler():
         self.opt = opt
         
         self.model = create_model(opt)
+        print(self.model.name())
 
-    def generate_image(self, person_path, fashion_path):
-        pass
+    def generate_image(self, data):
+        mask_clothes = torch.FloatTensor((data['label'].cpu().numpy() == 4).astype(np.int))
+        mask_fore = torch.FloatTensor((data['label'].cpu().numpy() > 0).astype(np.int))
+        img_fore = data['image'] * mask_fore
+        all_clothes_label = self.changearm(data['label'], data)
 
-    def make_input_dict(self, A_path, B_path):
-        A = Image.open(A_path).convert('L')
-        params = get_params(self.opt, A.size)
-        transform_A = get_transform(self.opt, params, method=Image.NEAREST, normalize=False)
-        A_tensor = transform_A(A) * 255.0
+        _, fake_image, real_image, _, _, _, _, _, _, _ = self.model(Variable(data['label'].cuda()),
+                                                                    Variable(data['edge'].cuda()),
+                                                                    Variable(img_fore.cuda()),
+                                                                    Variable(mask_clothes.cuda()),
+                                                                    Variable(data['color'].cuda()),
+                                                                    Variable(all_clothes_label.cuda()),
+                                                                    Variable(data['image'].cuda()),
+                                                                    Variable(data['pose'].cuda()),
+                                                                    Variable(data['image'].cuda()),
+                                                                    Variable(mask_fore.cuda()))
+        c = fake_image.float().cuda()
+        cv_img = (c[0].detach().cpu().numpy() + 1) / 2
+        rgb = (cv_img * 255).astye(np.uint8)
+        bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        
+        return bgr
 
-        B = Image.open(B_path).convert('RGB')
-        params = get_params(self.opt, B.size)
-        transform_B = get_transform(self.opt, params)
-        B_tensor = transform_B(B)
-
-        E = Image.open()
-
-    def generate_label_plain(inputs):
+    def generate_label_plain(self, inputs):
         size = inputs.size()
         pred_batch = []
         for input in inputs:
@@ -68,7 +76,7 @@ class Handler():
 
         return input_label
 
-    def complete_compose(img,mask,label):
+    def complete_compose(self, img, mask, label):
         label = label.cpu().numpy()
         M_f = label > 0
         M_f = M_f.astype(np.int)
@@ -79,7 +87,7 @@ class Handler():
 
         return masked_img,M_c,M_f
 
-    def compose(label,mask,color_mask,edge,color,noise):
+    def compose(self, label, mask, color_mask, edge, color, noise):
         masked_label = label * (1 - mask)
         masked_edge = mask * edge
         masked_color_strokes = mask * (1 - color_mask) * color
@@ -88,7 +96,7 @@ class Handler():
         return masked_label, masked_edge, masked_color_strokes, masked_noise
 
 
-    def changearm(old_label, data):
+    def changearm(self, old_label, data):
         label = old_label
         arm1 = torch.FloatTensor((data['label'].cpu().numpy()==11).astype(np.int))
         arm2 = torch.FloatTensor((data['label'].cpu().numpy()==13).astype(np.int))

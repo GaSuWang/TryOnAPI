@@ -10,3 +10,9 @@ server/human_parse/mhp_extension/detectron2/.github/
 server/human_parse/mhp_extension/detectron2/.circleci/
 *.md
 *.sh
+split_server/main_server/data_preprocessing/
+split_server/main_server/img_upload/
+*.caffemodel
+*.prototxt
+*.json
+server/img_upload/

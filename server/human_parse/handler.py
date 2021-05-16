@@ -16,6 +16,7 @@ import json
 import timeit
 import argparse
 
+from PIL import Image
 import numpy as np
 
 import torch
@@ -24,33 +25,28 @@ import torchvision.transforms as transforms
 import torch.backends.cudnn as cudnn
 from torch.utils import data
 
+from collections import OrderedDict
 import human_parse.networks as networks
 import human_parse.utils.schp as schp
-from human_parse.datasets.datasets import LIPDataSet
-from human_parse.datasets.target_generation import generate_edge_tensor
-from human_parse.utils.transforms import BGR2RGB_transform
-from human_parse.utils.criterion import CriterionAll
+from human_parse.utils.transforms import BGR2RGB_transform, transform_parsing
 from human_parse.utils.encoding import DataParallelModel, DataParallelCriterion
 from human_parse.utils.warmup_scheduler import SGDRScheduler
-
-
-args = {}
-args['arch'] = 'resnet101'
+from human_parse.data.data_dict import DataDictionary
 
 
 class Handler():
     def __init__(self, opt):
         self.opt = opt
 
-        self.multi_scales = [float(i) for i in args.multi_scales.splt(',')]
-        self.gpus = [int(i) for i in args.gpu.split(',')]
+        self.multi_scales = [1]
+        self.gpus = [int(i) for i in opt.gpu.split(',')]
         cudnn.benchmark = True
         cudnn.enabled = True
         
-        h, w = map(int, args.input_size.split(','))
+        h, w = map(int, opt.input_size.split(','))
         self.input_size = [h, w]
 
-        self.model = networks.init_model(args.arch, num_classes=args.num_classes, pretrained=None)
+        self.model = networks.init_model(opt.arch, num_classes=opt.num_classes, pretrained=None)
 
         self.IMAGE_MEAN = self.model.mean
         self.IMAGE_STD = self.model.std
@@ -65,9 +61,9 @@ class Handler():
                                             self.BGR2RGB_transform(),
                                             transforms.Normalize(mean=self.IMAGE_MEAN,
                                                                  std=self.IMAGE_STD)])
+        self.data_dict = DataDictionary(crop_size=self.input_size, transform=transform)
         
-        state_dict = torch.load(args.model_restore)['state_dict']
-        from collections import OrderedDict
+        state_dict = torch.load(opt.model_restore)['state_dict']
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
             name = k[7:]
@@ -76,17 +72,7 @@ class Handler():
         self.model.cuda()
         self.model.eval()
 
-        sp_results_dir = os.path.join(args.log_dir, 'sp_results')
-        if not os.path.exists(sp_results_dir):
-            os.makedirs(sp_results_dir)
-        
-        palette = self.get_palette(20)
-        parsing_preds = []
-        scales = np.zeros((1, 2), dtype=np.float32)
-        centers = np.zeros((1, 2), dtype=np.int32)
-
-
-    def get_palette(num_cls):
+    def get_palette(self, num_cls):
         """ Returns the color map for visualizing the segmentation mask.
         Args:
             num_cls: Number of classes
@@ -110,8 +96,7 @@ class Handler():
 
         return palette
 
-
-    def multi_scale_testing(model, batch_input_im, crop_size=[473, 473], flip=True, multi_scales=[1]):
+    def multi_scale_testing(self, batch_input_im, crop_size=[473, 473], flip=True, multi_scales=[1]):
         flipped_idx = (15, 14, 17, 16, 19, 18)
         if len(batch_input_im.shape) > 4:
             batch_input_im = batch_input_im.squeeze()
@@ -123,7 +108,7 @@ class Handler():
         for s in multi_scales:
             interp_im = torch.nn.Upsample(scale_factor=s, mode='bilinear', align_corners=True)
             scaled_im = interp_im(batch_input_im)
-            parsing_output = model(scaled_im)
+            parsing_output = self.model(scaled_im)
             parsing_output = parsing_output[0][-1]
             output = parsing_output[0]
             if flip:
@@ -140,3 +125,27 @@ class Handler():
         parsing = parsing.data.cpu().numpy()
         ms_fused_parsing_output = ms_fused_parsing_output.data.cpu().numpy()
         return parsing, ms_fused_parsing_output
+    
+    def predict(self, img_path):
+        image, meta = self.data_dict.make_dict(img_path)
+        palette = self.get_palette(20)
+        
+        with torch.no_grad():
+            c = meta['center'][0]
+            s = meta['scale'][0]
+            w = meta['width']
+            h = meta['height']
+
+            scales = np.zeros((1, 2), dtype=np.float32)
+            centers = np.zeros((1, 2), dtype=np.int32)
+            scales[0, :] = s
+            centers[0, :] = c
+
+            parsing, _ = self.multi_scale_testing(image.cuda(), crop_size=self.input_size,
+                                                       flip=False, multi_scales=self.multi_scales)
+            parsing_result = transform_parsing(parsing, c, s, w, h, self.input_size)
+            output_img = Image.fromarray(np.asarray(parsing_result, dtype=np.uint8))
+            output_img.putpalette(palette)
+            output_img.convert('L')
+        
+        return output_img
