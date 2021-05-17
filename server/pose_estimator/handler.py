@@ -7,6 +7,6 @@ class Handler():
         self.network = GeneralPoseModel(model_path)
     
     def predict(self, img_path):
-        _, conf = self.network.predict(img_path)
+        res = self.network.predict(img_path)
         
-        return conf
+        return res

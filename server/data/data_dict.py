@@ -30,27 +30,28 @@ class DataDictionary():
         params = get_params(self.opt, A.size)
         transform_A = get_transform(self.opt, params, method=Image.NEAREST, normalize=False)
         A_tensor = transform_A(A.convert('L')) * 255.0
-        A_tensor = torch.reshape(A_tensor, torch.Size((-1, 1, 256, 192)))
+        A_tensor = torch.unsqueeze(A_tensor, 0)
 
-        B = Image.fromarray(user_img).convert('RGB')
+        B = Image.open(user_imgpath).convert('RGB')
         params = get_params(self.opt, B.size)
         transform_B = get_transform(self.opt, params)
         B_tensor = transform_B(B)
-        B_tensor = torch.reshape(B_tensor, torch.Size((-1, 3, 256, 192)))
+        B_tensor = torch.unsqueeze(B_tensor, 0)
+
+        C = Image.open(clothes_imgname).convert('RGB')
+        C = C.resize((192, 256))
+        C_tensor = transform_B(C)
+        C_tensor = torch.unsqueeze(C_tensor, 0)
 
         clothes_img = cv2.imread(clothes_imgname, cv2.IMREAD_COLOR)
         clothes_img = cv2.resize(clothes_img, dsize=(192, 256), interpolation=cv2.INTER_AREA)
-        C = Image.fromarray(clothes_img).convert('RGB')
-        C_tensor = transform_B(C)
-        C_tensor = torch.reshape(C_tensor, torch.Size((-1, 3, 256, 192)))
-
         E = self.mask_handler.predict(clothes_img)
         E = Image.fromarray(E)
         E_tensor = transform_A(E.convert('L'))
-        E_tensor = torch.reshape(E_tensor, torch.Size((-1, 1, 256, 192)))
+        E_tensor = torch.unsqueeze(E_tensor, 0)
 
-        conf = self.ps_handler.predict(user_img)
-        pose_data = np.array(conf)
+        pose_data = self.ps_handler.predict(user_img)
+        pose_data = np.array(pose_data)
         pose_data = pose_data.reshape((-1, 3))
         point_num = pose_data.shape[0]
         pose_map = torch.zeros(point_num, self.fine_height, self.fine_width)
@@ -68,8 +69,7 @@ class DataDictionary():
             one_map = transform_B(one_map.convert('RGB'))
             pose_map[i] = one_map[0]
         P_tensor = pose_map
-        print(A_tensor.shape, B_tensor.shape)
-        print(C_tensor.shape, E_tensor.shape)
+        P_tensor = torch.unsqueeze(P_tensor, 0)
 
         input_dict = {'label': A_tensor,
                       'image': B_tensor,

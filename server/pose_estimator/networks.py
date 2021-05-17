@@ -59,8 +59,7 @@ class GeneralPoseModel(object):
         H = output.shape[2]
         W = output.shape[3]
 
-        points = []
-        conf = []
+        res = []
         for idx in range(self.num_points):
             probMap = output[0, idx, :, :] # confidence map.
 
@@ -72,13 +71,15 @@ class GeneralPoseModel(object):
             y = (img_height * point[1]) / H
 
             if prob > self.threshold:
-                points.append((int(x), int(y)))
-                conf.append(prob)
+                res.append(x)
+                res.append(y)
+                res.append(prob)
             else:
-                points.append(None)
-                conf.append(prob)
+                res.append(0)
+                res.append(0)
+                res.append(0)
 
-        return points, conf
+        return res
 
     def vis_pose(self, imgfile, points):
         img_cv2 = cv2.imread(imgfile)

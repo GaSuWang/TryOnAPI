@@ -25,6 +25,7 @@ class Handler():
         self.opt = opt
         
         self.model = create_model(opt)
+        self.model = self.model.cuda()
         print(self.model.name())
 
     def generate_image(self, data):
@@ -33,19 +34,19 @@ class Handler():
         img_fore = data['image'] * mask_fore
         all_clothes_label = self.changearm(data['label'], data)
 
-        _, fake_image, real_image, _, _, _, _, _, _, _ = self.model(Variable(data['label'].cuda()),
-                                                                    Variable(data['edge'].cuda()),
-                                                                    Variable(img_fore.cuda()),
-                                                                    Variable(mask_clothes.cuda()),
-                                                                    Variable(data['color'].cuda()),
-                                                                    Variable(all_clothes_label.cuda()),
-                                                                    Variable(data['image'].cuda()),
-                                                                    Variable(data['pose'].cuda()),
-                                                                    Variable(data['image'].cuda()),
-                                                                    Variable(mask_fore.cuda()))
+        fake_image = self.model(Variable(data['label'].cuda()),
+                                Variable(data['edge'].cuda()),
+                                Variable(img_fore.cuda()),
+                                Variable(mask_clothes.cuda()),
+                                Variable(data['color'].cuda()),
+                                Variable(all_clothes_label.cuda()),
+                                Variable(data['image'].cuda()),
+                                Variable(data['pose'].cuda()),
+                                Variable(data['image'].cuda()),
+                                Variable(mask_fore.cuda()))
         c = fake_image.float().cuda()
-        cv_img = (c[0].detach().cpu().numpy() + 1) / 2
-        rgb = (cv_img * 255).astye(np.uint8)
+        cv_img = (c[0].permute(1, 2, 0).detach().cpu().numpy() + 1) / 2
+        rgb = (cv_img * 255).astype(np.uint8)
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         
         return bgr

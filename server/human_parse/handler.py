@@ -11,27 +11,18 @@
              LICENSE file in the root directory of this source tree.
 """
 
-import os
-import json
-import timeit
-import argparse
-
+import cv2
 from PIL import Image
 import numpy as np
 
 import torch
-import torch.optim as optim
 import torchvision.transforms as transforms
 import torch.backends.cudnn as cudnn
-from torch.utils import data
 
 from collections import OrderedDict
 import human_parse.networks as networks
-import human_parse.utils.schp as schp
-from human_parse.utils.transforms import BGR2RGB_transform, transform_parsing
-from human_parse.utils.encoding import DataParallelModel, DataParallelCriterion
-from human_parse.utils.warmup_scheduler import SGDRScheduler
 from human_parse.data.data_dict import DataDictionary
+from human_parse.utils.transforms import transform_logits
 
 
 class Handler():
@@ -46,21 +37,15 @@ class Handler():
         h, w = map(int, opt.input_size.split(','))
         self.input_size = [h, w]
 
-        self.model = networks.init_model(opt.arch, num_classes=opt.num_classes, pretrained=None)
+        self.model = networks.init_model('resnet101', num_classes=20, pretrained=None)
 
-        self.IMAGE_MEAN = self.model.mean
-        self.IMAGE_STD = self.model.std
-        self.INPUT_SPACE = self.model.input_space
+        self.IMAGE_MEAN = [0.406, 0.456, 0.485]
+        self.IMAGE_STD = [0.225, 0.224, 0.229]
+        self.img_size = (256, 192)
 
-        if self.INPUT_SPACE == 'BGR':
-            transform = transforms.Compose([transforms.ToTensor(),
-                                            transforms.Normalize(mean=self.IMAGE_MEAN,
-                                                                 std=self.IMAGE_STD)])
-        if self.INPUT_SPACE == 'RGB':
-            transform = transforms.Compose([transforms.ToTensor(),
-                                            self.BGR2RGB_transform(),
-                                            transforms.Normalize(mean=self.IMAGE_MEAN,
-                                                                 std=self.IMAGE_STD)])
+        transform = transforms.Compose([transforms.ToTensor(),
+                                        transforms.Normalize(mean=self.IMAGE_MEAN,
+                                                             std=self.IMAGE_STD)])
         self.data_dict = DataDictionary(crop_size=self.input_size, transform=transform)
         
         state_dict = torch.load(opt.model_restore)['state_dict']
@@ -72,80 +57,43 @@ class Handler():
         self.model.cuda()
         self.model.eval()
 
-    def get_palette(self, num_cls):
-        """ Returns the color map for visualizing the segmentation mask.
-        Args:
-            num_cls: Number of classes
-        Returns:
-            The color map
-        """
-        n = num_cls
-        palette = [0] * (n * 3)
-        for j in range(0, n):
-            lab = j
-            palette[j * 3 + 0] = 0
-            palette[j * 3 + 1] = 0
-            palette[j * 3 + 2] = 0
-            i = 0
-            while lab:
-                palette[j * 3 + 0] |= (((lab >> 0) & 1) << (7 - i))
-                palette[j * 3 + 1] |= (((lab >> 1) & 1) << (7 - i))
-                palette[j * 3 + 2] |= (((lab >> 2) & 1) << (7 - i))
-                i += 1
-                lab >>= 3
-
-        return palette
-
-    def multi_scale_testing(self, batch_input_im, crop_size=[473, 473], flip=True, multi_scales=[1]):
-        flipped_idx = (15, 14, 17, 16, 19, 18)
-        if len(batch_input_im.shape) > 4:
-            batch_input_im = batch_input_im.squeeze()
-        if len(batch_input_im.shape) == 3:
-            batch_input_im = batch_input_im.unsqueeze(0)
-
-        interp = torch.nn.Upsample(size=crop_size, mode='bilinear', align_corners=True)
-        ms_outputs = []
-        for s in multi_scales:
-            interp_im = torch.nn.Upsample(scale_factor=s, mode='bilinear', align_corners=True)
-            scaled_im = interp_im(batch_input_im)
-            parsing_output = self.model(scaled_im)
-            parsing_output = parsing_output[0][-1]
-            output = parsing_output[0]
-            if flip:
-                flipped_output = parsing_output[1]
-                flipped_output[14:20, :, :] = flipped_output[flipped_idx, :, :]
-                output += flipped_output.flip(dims=[-1])
-                output *= 0.5
-            output = interp(output.unsqueeze(0))
-            ms_outputs.append(output[0])
-        ms_fused_parsing_output = torch.stack(ms_outputs)
-        ms_fused_parsing_output = ms_fused_parsing_output.mean(0)
-        ms_fused_parsing_output = ms_fused_parsing_output.permute(1, 2, 0)  # HWC
-        parsing = torch.argmax(ms_fused_parsing_output, dim=2)
-        parsing = parsing.data.cpu().numpy()
-        ms_fused_parsing_output = ms_fused_parsing_output.data.cpu().numpy()
-        return parsing, ms_fused_parsing_output
+        self.trans_dict = {
+            0:0,
+            1:1, 2:1,
+            5:4, 6:4, 7:4, 
+            18:5,
+            19:6,
+            9:8, 12:8,
+            16:9,
+            17:10,
+            14:11,
+            4:12, 13:12,
+            15:13
+        }
     
-    def predict(self, img_path):
-        image, meta = self.data_dict.make_dict(img_path)
-        palette = self.get_palette(20)
+    def predict(self, img):
+        image, meta = self.data_dict.make_dict(img)
         
         with torch.no_grad():
             c = meta['center'][0]
             s = meta['scale'][0]
             w = meta['width']
             h = meta['height']
+            image = torch.reshape(image, (1, 3, 473, 473))
+            output = self.model(image.cuda())
+            upsample = torch.nn.Upsample(size=torch.Size((473, 473)), mode='bicubic', align_corners=True)
+            upsample_output = upsample(output[0][-1][0].unsqueeze(0))
+            upsample_output = upsample_output.squeeze()
+            upsample_output = upsample_output.permute(1, 2, 0)
 
-            scales = np.zeros((1, 2), dtype=np.float32)
-            centers = np.zeros((1, 2), dtype=np.int32)
-            scales[0, :] = s
-            centers[0, :] = c
-
-            parsing, _ = self.multi_scale_testing(image.cuda(), crop_size=self.input_size,
-                                                       flip=False, multi_scales=self.multi_scales)
-            parsing_result = transform_parsing(parsing, c, s, w, h, self.input_size)
-            output_img = Image.fromarray(np.asarray(parsing_result, dtype=np.uint8))
-            output_img.putpalette(palette)
-            output_img.convert('L')
+            logits_result = transform_logits(upsample_output.data.cpu().numpy(), c, s, w, h, input_size=[473, 473])
+            parsing_result = np.argmax(logits_result, axis=2)
+            output_arr = np.asarray(parsing_result, dtype=np.uint8)
+            
+            new_arr = np.full(output_arr.shape, 7)
+            for old, new in self.trans_dict.items():
+                new_arr = np.where(output_arr == old, new, new_arr)
+            output_img = cv2.resize(np.asarray(new_arr, dtype=np.uint8), dsize=(192, 256), interpolation=cv2.INTER_AREA)
+            output_img = Image.fromarray(output_img)
         
         return output_img

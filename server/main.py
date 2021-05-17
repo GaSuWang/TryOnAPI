@@ -55,7 +55,7 @@ def image_upload():
 
         data = data_dict.make_dict(dest, clothes_imgpath)
         res_img = acgpn_handler.generate_image(data)
-        res_path = os.path.join('results/', img_name)
+        res_path = os.path.join('results/', img_name) + '.png'
         cv2.imwrite(res_path, res_img)
 
         return send_file(res_path, mimetype='image')

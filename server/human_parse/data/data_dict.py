@@ -30,6 +30,7 @@ class DataDictionary():
         return center, scale
     
     def make_dict(self, img):
+        img = cv2.resize(img, dsize=(473, 473), interpolation=cv2.INTER_AREA)
         h, w, _ = img.shape
 
         person_center, s = self._box2cs([0, 0, w - 1, h - 1])
