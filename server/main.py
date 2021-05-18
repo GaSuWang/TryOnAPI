@@ -2,6 +2,7 @@ import os
 import time
 import random
 import string
+from glob import glob
 
 import numpy as np
 import cv2
@@ -32,6 +33,7 @@ pe_handler = PEHandler(ps_checkpoints)
 f_filename = '{time}{rand}'
 dir_C = ' data_preprocessing/test_color'
 data_dict = DataDictionary(opt, parse_handler, mask_handler, pe_handler, dir_C)
+clothes_img = glob(dir_C + '/*.png')
 
 
 '''
@@ -46,7 +48,7 @@ def test_page():
 def image_upload():
     if request.method == 'POST':
         user_img = request.files['img_file']
-        clothes_imgpath = os.path.join('data_preprocessing/test_color', request.form['clothes'])
+        clothes_imgpath = os.path.join(dir_C, request.form['clothes'])
         rand_digits = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(16))
         img_name = f_filename.format(time=str(int(time.time())), rand=rand_digits)
         img_name = secure_filename(img_name)
@@ -61,14 +63,23 @@ def image_upload():
         return send_file(res_path, mimetype='image')
     
     else:
-        return '404'
+        return 'Not Found', 404
 
 
 '''
  For Publishing
 '''
+@app.route('/image_query', methods=['GET'])
+def image_query():
+    id = int(request.args['id'])
+    if id < 0 or id >= len(clothes_img):
+        return 'Not Found', 404
+    else:
+        return send_file(clothes_img[id], mimetype='image')
+
 
 if __name__ == "__main__":
     app.run(host='202.31.200.237',
-            port=8080,
+            port=2010,
             debug=True)
+    

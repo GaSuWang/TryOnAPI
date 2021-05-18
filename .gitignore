@@ -16,3 +16,4 @@ split_server/main_server/img_upload/
 *.prototxt
 *.json
 server/img_upload/
+server/data_p/
