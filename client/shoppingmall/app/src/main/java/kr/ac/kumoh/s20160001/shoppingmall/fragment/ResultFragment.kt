@@ -1,6 +1,8 @@
 package kr.ac.kumoh.s20160001.shoppingmall.fragment
 
+import android.app.Application
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -14,18 +16,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kr.ac.kumoh.s20160001.shoppingmall.R
-import java.io.File
-import java.io.FileOutputStream
-import java.io.OutputStream
+import java.io.*
 
 
 class ResultFragment : Fragment() {
     var byte: ByteArray? = null
     lateinit var bitmap: Bitmap
-    private lateinit var currentPhotoPath: String
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
@@ -54,8 +54,7 @@ class ResultFragment : Fragment() {
                         put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
                         put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
                     }
-                    val imageUri: Uri? =
-                            resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                    val imageUri: Uri? = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
                     fos = imageUri?.let { resolver.openOutputStream(it) }
                 }
             } else {
@@ -67,17 +66,52 @@ class ResultFragment : Fragment() {
             fos?.use {
                 //Finally writing the bitmap to the output stream that we opened
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-               Toast.makeText(activity,"Saved to Photos",Toast.LENGTH_SHORT).show()
+               Toast.makeText(activity,"사진을 저장했습니다.",Toast.LENGTH_SHORT).show()
             }
 
         }
+
+
         btn_share.setOnClickListener {
-            val intent = Intent(android.content.Intent.ACTION_SEND)
-            intent.setType("image/*")
-            //intent.putExtra(Intent.EXTRA_STREAM,resultUri)
-            val choose = Intent.createChooser(intent,"공유하기")
-            startActivity(choose)
+            val cachePath = File(context!!.cacheDir,  "my_images/")
+            cachePath.mkdirs()
+            val file = File(cachePath, "Image_123.png")
+            val fileOutputStream: FileOutputStream
+            try {
+                fileOutputStream = FileOutputStream(file)
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fileOutputStream)
+                fileOutputStream.flush()
+                fileOutputStream.close()
+            } catch (e: FileNotFoundException) {
+                e.printStackTrace()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+
+            //---Share File---//
+            //get file uri
+
+            //---Share File---//
+            //get file uri
+            val myImageFileUri = FileProvider.getUriForFile(
+                    context!!,
+                    Application().packageName + ".provider", file)
+
+            //create a intent
+
+            //create a intent
+            val intent = Intent(Intent.ACTION_SEND)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            intent.putExtra(Intent.EXTRA_STREAM, myImageFileUri)
+            intent.type = "image/png"
+            startActivity(Intent.createChooser(intent, "Share with"))
         }
+
+
+
+
         return v
     }
+
 }

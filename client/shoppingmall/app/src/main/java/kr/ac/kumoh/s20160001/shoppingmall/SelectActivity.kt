@@ -61,6 +61,7 @@ class SelectActivity : AppCompatActivity() {
         setContentView(view)
         transaction.commit()
         binding.button3.setOnClickListener {
+            binding.button3.isClickable = false
             val mDial = LayoutInflater.from(this).inflate(R.layout.dialog_loading,null)
             var builder = LoadingDialog(this)
             builder.setContentView(mDial)
