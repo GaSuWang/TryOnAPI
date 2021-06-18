@@ -20,8 +20,6 @@ from pose_estimator.handler import Handler as PEHandler
 from data.data_dict import DataDictionary
 
 
-app = Flask(__name__)
-
 ps_checkpoints = 'pose_estimator/checkpoints'
 
 opt = ServerOptions().parse()
@@ -31,10 +29,21 @@ mask_handler = MaskHandler()
 pe_handler = PEHandler(ps_checkpoints)
 
 f_filename = '{time}{rand}'
-dir_C = ' data_preprocessing/test_color'
+dir_C = 'data_preprocessing/test_color'
 data_dict = DataDictionary(opt, parse_handler, mask_handler, pe_handler, dir_C)
-clothes_img = glob(dir_C + '/*.png')
+clothes_img = glob(dir_C + '/*.jpg')
 
+app = Flask(__name__)
+
+
+def save_request_file(req_file, dest='img_upload/'):
+    rand_digits = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(16))
+    f_name = f_filename.format(time=str(int(time.time())), rand=rand_digits)
+    f_name = secure_filename(f_name)
+    f_dest = os.path.join(dest, f_name)
+    req_file.save(f_dest)
+
+    return f_name, f_dest
 
 '''
  For Testing
@@ -47,13 +56,16 @@ def test_page():
 @app.route('/img_upload', methods=['GET', 'POST'])
 def image_upload():
     if request.method == 'POST':
+        if 'clothes' in request.form.keys:
+            clothes_imgpath = clothes_img[int(request.form['clothes'])]
+        elif 'clothes' in request.files.keys:
+            c_img = request.files['clothes']
+            _, clothes_imgpath = save_request_file(c_img)
+        else:
+            return 'Not Found', 404
+            
         user_img = request.files['img_file']
-        clothes_imgpath = os.path.join(dir_C, request.form['clothes'])
-        rand_digits = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(16))
-        img_name = f_filename.format(time=str(int(time.time())), rand=rand_digits)
-        img_name = secure_filename(img_name)
-        dest = os.path.join('img_upload/', img_name)
-        user_img.save(dest)
+        img_name, dest = save_request_file(user_img)
 
         data = data_dict.make_dict(dest, clothes_imgpath)
         res_img = acgpn_handler.generate_image(data)
@@ -63,6 +75,7 @@ def image_upload():
         return send_file(res_path, mimetype='image')
     
     else:
+        print(request.method)
         return 'Not Found', 404
 
 
@@ -72,14 +85,13 @@ def image_upload():
 @app.route('/image_query', methods=['GET'])
 def image_query():
     id = int(request.args['id'])
-    if id < 0 or id >= len(clothes_img):
-        return 'Not Found', 404
-    else:
+    if id >= 0 and id < len(clothes_img):
         return send_file(clothes_img[id], mimetype='image')
+    else:
+        return 'Not Found', 404
 
 
 if __name__ == "__main__":
     app.run(host='202.31.200.237',
             port=2010,
             debug=True)
-    

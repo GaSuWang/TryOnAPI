@@ -308,24 +308,24 @@ class Pix2PixHDModel(BaseModel):
         fake_cl = self.sigmoid(fake_cl)
 
         fake_cl_dis = torch.FloatTensor((fake_cl.detach().cpu().numpy() > 0.5).astype(np.float))
-        fake_cl_dis=morpho(fake_cl_dis,1,True)
+        fake_cl_dis = morpho(fake_cl_dis,1,True)
 
         new_arm1_mask = torch.FloatTensor((armlabel_map.cpu().detach().numpy() == 11).astype(np.float)).cuda()
         new_arm2_mask = torch.FloatTensor((armlabel_map.cpu().detach().numpy() == 13).astype(np.float)).cuda()
-        fake_cl_dis=fake_cl_dis*(1- new_arm1_mask)*(1-new_arm2_mask)
-        fake_cl_dis*=mask_fore
+        fake_cl_dis = fake_cl_dis*(1- new_arm1_mask)*(1-new_arm2_mask)
+        fake_cl_dis *= mask_fore
 
         arm1_occ = clothes_mask * new_arm1_mask
         arm2_occ = clothes_mask * new_arm2_mask
-        bigger_arm1_occ=morpho(arm1_occ,10)
-        bigger_arm2_occ=morpho(arm2_occ,10  )
+        bigger_arm1_occ = morpho(arm1_occ,10)
+        bigger_arm2_occ = morpho(arm2_occ,10  )
         arm1_full = arm1_occ + (1 - clothes_mask) * arm1_mask
         arm2_full = arm2_occ + (1 - clothes_mask) * arm2_mask
         armlabel_map *= (1 - new_arm1_mask)
         armlabel_map *= (1 - new_arm2_mask)
         armlabel_map = armlabel_map * (1 - arm1_full) + arm1_full * 11
         armlabel_map = armlabel_map * (1 - arm2_full) + arm2_full * 13
-        armlabel_map*=(1-fake_cl_dis)
+        armlabel_map *= (1-fake_cl_dis)
         dis_label=encode(armlabel_map,armlabel_map.shape)
 
         fake_c, warped, warped_mask,warped_grid= self.Unet(clothes, fake_cl_dis, pre_clothes_mask,grid)
