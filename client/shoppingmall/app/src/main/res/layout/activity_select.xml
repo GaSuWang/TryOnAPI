@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+
     tools:context=".SelectActivity">
     <FrameLayout
         android:id="@+id/frameLayout"
@@ -15,6 +16,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:backgroundTint="@color/black"
+        android:fontFamily="@font/fontres"
         android:text="확인"
+        android:textSize="20dp"
         />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -6,7 +6,6 @@ import retrofit2.Call
 import retrofit2.http.*
 
 interface RetrofitService {
-    // Json
     @Multipart
     @POST("/img_upload")
     fun request(
@@ -16,5 +15,4 @@ interface RetrofitService {
     @GET("/image_query")
     fun getimage(
             @Query("id") Id:String?):Call<ResponseBody>
-
 }

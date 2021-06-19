@@ -1,6 +1,5 @@
 package kr.ac.kumoh.s20160001.shoppingmall
 
-import android.Manifest
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -36,7 +35,6 @@ import java.net.URLEncoder
 
 class SelectActivity : AppCompatActivity() {
     private  val BASE_URL = "http://202.31.200.237:2010"
-    //private val BASE_URL = "http://172.16.101.61:8082"
     lateinit var binding: ActivitySelectBinding
 
 
@@ -61,33 +59,32 @@ class SelectActivity : AppCompatActivity() {
         setContentView(view)
         transaction.commit()
         binding.button3.setOnClickListener {
+            //확인버튼 비활성화
             binding.button3.isClickable = false
+
+            //처리중 다이얼로그 출력, 로딩 애니메이션 시작
             val mDial = LayoutInflater.from(this).inflate(R.layout.dialog_loading,null)
             var builder = LoadingDialog(this)
             builder.setContentView(mDial)
             builder.show()
             val animation = AnimationUtils.loadAnimation(this,R.anim.rotate)
             val loading = mDial.findViewById<ImageView>(R.id.progressBar2)
-            val text = mDial.findViewById<TextView>(R.id.test)
             loading.startAnimation(animation)
 
+            //전달받은 이미지 실제경로 찾기
             var column_idx = 0
             var proj = arrayOf(MediaStore.Images.Media.DATA)
             var cursor = contentResolver.query(Uri,proj,null,null,null)
             if (cursor!!.moveToFirst()){
                 column_idx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-
             }
             var RealUri = cursor.getString(column_idx)
-
 
             //png파일 생성
             val file = File(RealUri)
 
+            //retrofit2 body구성
             var requestBody : RequestBody = RequestBody.create(MediaType.parse("image/*"),file)
-            Log.d("반환성공",requestBody.toString())
-
-
             var body : MultipartBody.Part = MultipartBody.Part.createFormData("img_file",file.name,requestBody)
             //The gson builder
             var gson : Gson =  GsonBuilder()
@@ -99,21 +96,20 @@ class SelectActivity : AppCompatActivity() {
                     .addConverterFactory(GsonConverterFactory.create(gson))
                     .build()
             var server = retrofit.create(RetrofitService::class.java)
-            Log.d("레트로핏 결과 전송", id.toString())
+
+            //서버 요청
             server.request(id_int,body).enqueue(object: Callback<ResponseBody> {
                 override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
                     Log.d("레트로핏 결과 전송", t.message.toString())
-                    Toast.makeText(getApplicationContext(), "서버 연결에 실패했습니다.2", Toast.LENGTH_LONG).show();
-
+                    Toast.makeText(getApplicationContext(), "서버 연결에 실패했습니다", Toast.LENGTH_LONG).show()
                 }
 
                 override fun onResponse(
                     call: Call<ResponseBody>,
                     response: Response<ResponseBody>
                 ) {
-                    Log.d("레트로핏 결과 전송", response.code().toString())
                     if (response?.isSuccessful) {
-
+                        //반환받은 파일 ByteArray변환 후 결과출력화면으로 전달
                         val file = response.body()?.byteStream()
                         val bitmap = BitmapFactory.decodeStream(file)
                         val stream = ByteArrayOutputStream()
@@ -136,8 +132,6 @@ class SelectActivity : AppCompatActivity() {
                     }
                 }
             })
-
-
         }
     }
 

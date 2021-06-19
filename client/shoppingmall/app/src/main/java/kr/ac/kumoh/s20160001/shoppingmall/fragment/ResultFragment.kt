@@ -43,7 +43,6 @@ class ResultFragment : Fragment() {
         result.setImageBitmap(bitmap)
 
         btn_save.setOnClickListener {
-
             val filename = "${System.currentTimeMillis()}.png"
             var fos:OutputStream? = null
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -87,30 +86,16 @@ class ResultFragment : Fragment() {
             } catch (e: IOException) {
                 e.printStackTrace()
             }
-
-            //---Share File---//
-            //get file uri
-
-            //---Share File---//
-            //get file uri
             val myImageFileUri = FileProvider.getUriForFile(
                     context!!,
                     Application().packageName + ".provider", file)
-
-            //create a intent
-
-            //create a intent
             val intent = Intent(Intent.ACTION_SEND)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             intent.putExtra(Intent.EXTRA_STREAM, myImageFileUri)
             intent.type = "image/png"
-            startActivity(Intent.createChooser(intent, "Share with"))
+            startActivity(Intent.createChooser(intent, "공유하기"))
         }
-
-
-
-
         return v
     }
 

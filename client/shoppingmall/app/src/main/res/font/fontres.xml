@@ -2,9 +2,9 @@
 <font-family xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 <font
-    android:font="@font/nanumarms"
+    android:font="@font/nanum"
     android:fontStyle="normal"
-    app:font = "@font/nanumarms"
+    app:font = "@font/nanum"
     app:fontStyle="normal"
     />
 </font-family>

@@ -1,61 +1,78 @@
 package kr.ac.kumoh.s20160001.shoppingmall
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.DefaultItemAnimator
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import kotlinx.android.synthetic.main.activity_detail.*
 import kr.ac.kumoh.s20160001.shoppingmall.databinding.ActivityDetailBinding
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
-import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.collections.ArrayList
 
 class DetailActivity : AppCompatActivity() {
 
     private lateinit var model: ViewModel
+    private val mAdapter = ProductAdapter()
     private lateinit var binding: ActivityDetailBinding
     val CAMERA = arrayOf(Manifest.permission.CAMERA)
     val STORAGE = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     private var imageUri: Uri?=null
     val REQUEST_IMAGE_CAPTURE = 1
+    val SELECT_IMAGE_GALLERY = 100
     lateinit var currentPhotoPath: String
     var id: String? = ""
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_detail)
+        binding = ActivityDetailBinding.inflate(layoutInflater)
+
+        binding.recommendList.apply {
+            layoutManager = LinearLayoutManager(this@DetailActivity,LinearLayoutManager.HORIZONTAL,false)
+            setHasFixedSize(true)
+            itemAnimator = DefaultItemAnimator()
+            adapter = mAdapter
+        }
+
 
         model = ViewModelProvider(this,
             ViewModelProvider.AndroidViewModelFactory(application))
             .get(ViewModel::class.java)
 
+        model.reco_list.observe(this, Observer<ArrayList<ViewModel.reco_Product>>{
+            mAdapter.notifyDataSetChanged()
+        })
+        model.getReco()
+
 
         val Gprice = intent.getStringExtra("price")
         val Gname = intent.getStringExtra("name")
         val Gid = intent.getStringExtra("id")
+
         id = Gid
-
-
-        binding = ActivityDetailBinding.inflate(layoutInflater)
         binding.textView.setText(Gname)
         binding.textView2.setText(Gprice)
         model.setImg(id,binding.imageView)
@@ -100,7 +117,7 @@ class DetailActivity : AppCompatActivity() {
             gall.setOnClickListener {
                 if (checkPermission(STORAGE)){
                     val gallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI)
-                    startActivityForResult(gallery, 100)
+                    startActivityForResult(gallery, SELECT_IMAGE_GALLERY)
                 }
 
             }
@@ -111,7 +128,7 @@ class DetailActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         val viewer = findViewById<ImageView>(R.id.selectedImg)
-        if (resultCode == RESULT_OK && requestCode == 100) {
+        if (resultCode == RESULT_OK && requestCode == SELECT_IMAGE_GALLERY) {
             imageUri = data?.data
             intent = Intent(this, SelectActivity::class.java).apply {
                 putExtra("Uri",imageUri.toString())
@@ -128,7 +145,6 @@ class DetailActivity : AppCompatActivity() {
             }
             startActivity(intent)
         }
-
     }
 
     fun checkPermission(permissions: Array<out String>): Boolean
@@ -173,4 +189,35 @@ class DetailActivity : AppCompatActivity() {
             currentPhotoPath = absolutePath
         }
     }
+
+    inner class ProductAdapter: RecyclerView.Adapter<ProductAdapter.ViewHolder>() {
+
+        inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            val productImg = itemView.findViewById<ImageView>(R.id.image)
+        }
+
+        override fun getItemCount(): Int {
+            return model.getRecoSize()
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProductAdapter.ViewHolder {
+            val view = layoutInflater.inflate(
+                    R.layout.cardview,
+                    parent,
+                    false)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: ProductAdapter.ViewHolder, position: Int) {
+            model.setImg(model.getRecoProduct(position).id,holder.productImg)
+            holder.itemView.setOnClickListener(){
+                val intent = Intent(holder.itemView?.context, DetailActivity::class.java)
+                intent.putExtra("name",model.getRecoProduct(position).name )
+                intent.putExtra("price",model.getRecoProduct(position).price )
+                intent.putExtra("id",model.getRecoProduct(position).id)
+                ContextCompat.startActivity(holder.itemView.context,intent,null)
+            }
+        }
+    }
+
 }

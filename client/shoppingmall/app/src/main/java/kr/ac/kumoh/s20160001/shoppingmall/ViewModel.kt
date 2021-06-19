@@ -23,12 +23,19 @@ import java.io.ByteArrayOutputStream
 
 class ViewModel(application: Application) : AndroidViewModel(application) {
     data class Product (var id: String, var name: String, var price: String)
+    data class reco_Product (var id: String, var name: String, var price: String)
+
     val list = MutableLiveData<ArrayList<Product>>()
+    val reco_list = MutableLiveData<ArrayList<reco_Product>>()
     private val product = ArrayList<Product>()
+    private val reco_product = ArrayList<reco_Product>()
     private  val BASE_URL = "http://202.31.200.237:2010"
 
     fun getProduct(i: Int) = product[i]
     fun getSize() = product.size
+
+    fun getRecoProduct(i:Int) = reco_product[i]
+    fun getRecoSize() = reco_product.size
 
 
     fun setImg(id: String?, productImg:ImageView){
@@ -44,8 +51,7 @@ class ViewModel(application: Application) : AndroidViewModel(application) {
         var server = retrofit.create(RetrofitService::class.java)
         server.getimage(id).enqueue(object: Callback<ResponseBody> {
             override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
-                Log.d("레트로핏 결과1", t.message.toString())
-                Toast.makeText(getApplication(), "서버 연결에 실패했습니다.", Toast.LENGTH_LONG).show();
+                Log.d("레트로핏 결과", t.message.toString())
             }
             override fun onResponse(
                     call: Call<ResponseBody>,
@@ -64,6 +70,15 @@ class ViewModel(application: Application) : AndroidViewModel(application) {
             val name = "테스트이미지"
             val price = "10000원"
             product.add(Product(id, name, price))
+        }
+    }
+
+    fun getReco(){
+        for (i in 0 until 8) {
+            val id = ""+i+3
+            val name = "테스트이미지"
+            val price = "10000원"
+            reco_product.add(reco_Product(id, name, price))
         }
     }
 }
