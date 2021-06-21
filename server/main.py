@@ -56,9 +56,9 @@ def test_page():
 @app.route('/img_upload', methods=['GET', 'POST'])
 def image_upload():
     if request.method == 'POST':
-        if 'clothes' in request.form.keys:
+        if 'clothes' in request.form.keys():
             clothes_imgpath = clothes_img[int(request.form['clothes'])]
-        elif 'clothes' in request.files.keys:
+        elif 'clothes' in request.files.keys():
             c_img = request.files['clothes']
             _, clothes_imgpath = save_request_file(c_img)
         else:
