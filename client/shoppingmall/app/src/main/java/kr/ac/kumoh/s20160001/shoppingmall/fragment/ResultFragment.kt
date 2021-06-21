@@ -1,8 +1,6 @@
 package kr.ac.kumoh.s20160001.shoppingmall.fragment
 
-import android.app.Application
 import android.content.ContentValues
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -87,8 +85,8 @@ class ResultFragment : Fragment() {
                 e.printStackTrace()
             }
             val myImageFileUri = FileProvider.getUriForFile(
-                    context!!,
-                    Application().packageName + ".provider", file)
+                    requireContext(),
+                      "kr.ac.kumoh.s20160001.shoppingmall"+".fileprovider", file)
             val intent = Intent(Intent.ACTION_SEND)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

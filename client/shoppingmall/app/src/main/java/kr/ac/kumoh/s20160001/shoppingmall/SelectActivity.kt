@@ -11,7 +11,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
-import android.widget.TextView
 import android.widget.Toast
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -30,7 +29,6 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
-import java.net.URLEncoder
 
 
 class SelectActivity : AppCompatActivity() {
@@ -128,7 +126,6 @@ class SelectActivity : AppCompatActivity() {
                         } catch (e : IOException) {
                             Log.d("UploadImage", "IOException = "+e.message);
                         }
-
                     }
                 }
             })
